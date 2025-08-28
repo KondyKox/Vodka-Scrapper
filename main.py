@@ -1,13 +1,22 @@
-from scrapers.biedronka import get_prices
-from utils.helpers import save_to_csv
+from scrapers import BiedronkaScraper, normalize_product
+from utils.saver import save_to_csv, save_to_json
 
 
 def main():
-    vodka_prices = get_prices()
-    save_to_csv(vodka_prices)
+    # Biedronka
+    scraper = BiedronkaScraper(headless=True)
+    raw_products = scraper.run()
 
-    for vodka in vodka_prices:
-        print(vodka)
+    # testing
+    for p in raw_products:
+        print(p.get("name"), p.get("price"), p.get("volume"))
+
+    normalized_products = [
+        normalize_product(p, store_name="Biedronka") for p in raw_products
+    ]
+
+    save_to_csv(normalized_products, filename="data/vodkas.csv")
+    save_to_json(normalized_products, filename="data/vodkas.json")
 
 
 if __name__ == "__main__":
