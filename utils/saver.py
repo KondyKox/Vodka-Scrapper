@@ -45,7 +45,15 @@ def save_to_csv(data, filename="data/vodkas.csv", include_timestamp=True):
         filename = f"{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
 
     # Columns
-    fieldnames = ["name", "flavor", "volume", "price", "store", "image_url"]
+    fieldnames = [
+        "name",
+        "flavor",
+        "volume",
+        "alcoholPercentage",
+        "price",
+        "store",
+        "imageSrc",
+    ]
 
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)

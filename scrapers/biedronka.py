@@ -1,31 +1,13 @@
 from selenium.webdriver.common.by import By
 from scrapers.base_scraper import BaseScraper
-import re
-
-
-def parse_volume(volume_text: str) -> int:
-    volume_text = volume_text.lower().strip()
-    if "ml" in volume_text:
-        return int(re.sub(r"\D", "", volume_text))
-    if "l" in volume_text:
-        return int(float(volume_text.replace("l", "").strip().replace(",", ".")) * 1000)
-    return None
-
-
-def parse_abv(name: str) -> int | None:
-    match = re.search(r"(\d{2})\s*%", name)
-    return int(match.group(1)) if match else None
-
-
-def clean_name(name: str) -> str:
-    # Usuwamy abv z nazwy, poprawiamy case
-    return re.sub(r",?\s*\d{2}\s*%", "", name).strip().title()
-
-
-def parse_price(price_text: str) -> float | None:
-    # Wyciągamy liczbę (np. "59,99 zł" -> 59.99)
-    match = re.search(r"(\d+[,.]?\d*)", price_text)
-    return float(match.group(1).replace(",", ".")) if match else None
+from utils import (
+    clean_text,
+    parse_volume,
+    parse_price,
+    parse_abv,
+    normalize_name,
+    parse_flavor,
+)
 
 
 class BiedronkaScraper(BaseScraper):
@@ -50,35 +32,43 @@ class BiedronkaScraper(BaseScraper):
 
         for product in products:
             try:
-                raw_name = product.find_element(By.CSS_SELECTOR, "li.name").text.strip()
-                raw_price = product.find_element(
-                    By.CSS_SELECTOR, "li.price"
-                ).text.strip()
-                raw_volume = product.find_element(
-                    By.CSS_SELECTOR, "li.price > p.liters"
-                ).text.strip()
-                imageSrc = product.find_element(
-                    By.CSS_SELECTOR, ".img-prod > img"
-                ).get_attribute("src")
+                # surowy tekst całej karty (przydatny do fallbacków)
+                card_text = clean_text(product.text)
 
-                volume_ml = parse_volume(raw_volume)
-                abv = parse_abv(raw_name)
-                name = clean_name(raw_name)
-                price_pln = parse_price(raw_price)
+                # --- NAZWA ---
+                name_el = product.find_elements(By.CSS_SELECTOR, "li.name")
+                raw_name = clean_text(name_el[0].text) if name_el else card_text
 
-                # marka = słowo po "Wódka"
-                brand = None
-                if name.lower().startswith("wódka "):
-                    brand = name.split(" ", 1)[1].split()[0]
+                # --- CENA ---
+                price_block = product.find_elements(By.CSS_SELECTOR, "li.old_price")
+                raw_price = (
+                    clean_text(price_block[0].text) if price_block else card_text
+                )
+
+                # --- POJEMNOŚĆ ---
+                vol_el = product.find_elements(By.CSS_SELECTOR, "li.price p.liters")
+                raw_volume = clean_text(vol_el[0].text) if vol_el else ""
+
+                # --- OBRAZEK ---
+                img_el = product.find_elements(By.CSS_SELECTOR, ".img-prod img, img")
+                imageSrc = img_el[0].get_attribute("src") if img_el else None
+
+                # --- PARSING ---
+                name = normalize_name(raw_name)
+                flavor = parse_flavor(raw_name)
+                abv = parse_abv(raw_name) or parse_abv(card_text)
+                volume = parse_volume(raw_volume) or parse_volume(card_text)
+                price = parse_price(raw_price) or parse_price(card_text)
 
                 products_data.append(
                     {
-                        "brand": brand,
                         "name": name,
-                        "abv": abv,
-                        "volume_ml": volume_ml,
-                        "price_pln": price_pln,
-                        "image_url": imageSrc,
+                        "flavor": flavor,
+                        "alcoholPercentage": abv,
+                        "volume": volume,
+                        "price": price,
+                        "store": "Biedronka",
+                        "imageSrc": imageSrc,
                     }
                 )
             except Exception as e:

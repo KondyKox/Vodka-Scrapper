@@ -1,5 +1,5 @@
-from scrapers import BiedronkaScraper, normalize_product
-from utils.saver import save_to_csv, save_to_json
+from scrapers import BiedronkaScraper
+from utils import save_to_csv, save_to_json, normalize_product
 
 
 def main():
@@ -8,8 +8,8 @@ def main():
     raw_products = scraper.run()
 
     # testing
-    for p in raw_products:
-        print(p.get("name"), p.get("price"), p.get("volume"))
+    # for p in raw_products:
+    #     print(p.get("name"), p.get("price"), p.get("volume"))
 
     normalized_products = [
         normalize_product(p, store_name="Biedronka") for p in raw_products
