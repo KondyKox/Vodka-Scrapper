@@ -84,6 +84,7 @@ def normalize_product(product: dict, store_name: str) -> dict:
     raw_name = product.get("name", "")
     raw_price = product.get("price", "")
     raw_volume = product.get("volume", "")
+    raw_abv = product.get("alcoholPercentage", "")
     src = product.get("imageSrc")
 
     return {
@@ -92,7 +93,11 @@ def normalize_product(product: dict, store_name: str) -> dict:
         "volume": (
             parse_volume(raw_volume) if isinstance(raw_volume, str) else raw_volume
         ),
-        "alcoholPercentage": parse_abv(raw_name) or 40,
+        "alcoholPercentage": (
+            parse_abv(str(raw_abv))
+            if not isinstance(raw_abv, (int, float))
+            else raw_abv or 40
+        ),
         "price": (
             raw_price if isinstance(raw_price, (int, float)) else parse_price(raw_price)
         ),

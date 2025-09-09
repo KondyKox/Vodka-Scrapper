@@ -67,12 +67,11 @@ class BiedronkaScraper(BaseScraper):
                         "alcoholPercentage": abv,
                         "volume": volume,
                         "price": price,
-                        "store": "Biedronka",
                         "imageSrc": imageSrc,
                     }
                 )
             except Exception as e:
-                print(f"Failed to parse product: {e}")
+                print(f"[BIEDRONKA] Failed to parse product: {e}")
                 continue
 
         return products_data

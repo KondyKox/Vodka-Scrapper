@@ -9,6 +9,7 @@ from .normalize import (
     parse_flavor,
     normalize_product,
 )
+from .parser import parse_lidl_summary
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "parse_abv",
     "normalize_name",
     "parse_flavor",
+    "parse_lidl_summary",
 ]

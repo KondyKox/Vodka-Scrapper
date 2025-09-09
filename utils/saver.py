@@ -16,8 +16,10 @@ def save_to_json(data, filename: Path = DEFAULT_FILE):
         print("⚠️ No data to save.")
         return
 
+    wrapped = {"lastUpdated": datetime.now().isoformat(), "products": data}
+
     with open(filename, mode="w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+        json.dump(wrapped, f, ensure_ascii=False, indent=4)
 
     print(f"✅ Data saved to: {filename}")
 
@@ -44,6 +46,10 @@ def save_to_csv(data, filename="data/vodkas.csv", include_timestamp=True):
         name, ext = os.path.splitext(filename)
         filename = f"{name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}{ext}"
 
+    timestamp = datetime.now().isoformat()
+    for item in data:
+        item["lastUpdated"] = timestamp
+
     # Columns
     fieldnames = [
         "name",
@@ -53,6 +59,7 @@ def save_to_csv(data, filename="data/vodkas.csv", include_timestamp=True):
         "price",
         "store",
         "imageSrc",
+        "lastUpdated",
     ]
 
     with open(filename, mode="w", newline="", encoding="utf-8") as file:
