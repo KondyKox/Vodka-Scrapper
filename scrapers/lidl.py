@@ -47,7 +47,7 @@ class LidlScraper(BaseScraper):
 
                 raw_product = {
                     "name": name_part,
-                    "price": 0,
+                    "price": None,  # No prices on Lidl page
                     "flavor": flavor,
                     "volume": raw_volume,
                     "alcoholPercentage": raw_abv,
