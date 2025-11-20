@@ -1,11 +1,20 @@
 // Types
 export interface Vodka {
-  _id: string;
   name: string;
-  imageSrc: string;
-  alcoholPercentage: number;
   flavor: VodkaFlavor;
-  variants: VodkaVariant[];
+  volume: number;
+  alcoholPercentage: number;
+  imageSrc: string;
+  store: Store;
+}
+
+export interface RawVodka {
+  name: string; // surowa nazwa z karty
+  price: number | null; // surowa cena (sama liczba), może być null jak nic nie znajdzie
+  imageSrc: string | null;
+  volume: number | null; // surowe ml/l z tekstu
+  url: string | null; // opcjonalnie link
+  rawText: string; // CAŁY TEKST karty jak w Pythonie
 }
 
 export type VodkaFlavor =
@@ -15,12 +24,6 @@ export type VodkaFlavor =
   | "cherry"
   | "currant"
   | "mango";
-
-export interface VodkaVariant {
-  volume: number;
-  stores: Store[];
-  averagePrice?: number;
-}
 
 export interface PriceHistory {
   date: Date;
