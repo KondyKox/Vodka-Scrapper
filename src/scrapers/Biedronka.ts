@@ -33,7 +33,7 @@ export class BiedronkaScraper extends BaseScraper {
     await this.openPage();
 
     await this.acceptCookies(this.selectors.cookies);
-    await this.fillAgeGate(this.selectors.ageGate);
+    await this.fillAgeGate("input#yes");
 
     const rawList = await this.getProductsRaw();
 

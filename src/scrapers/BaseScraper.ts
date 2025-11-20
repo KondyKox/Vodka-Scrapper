@@ -56,56 +56,29 @@ export abstract class BaseScraper {
   }
 
   // age gate
-  async fillAgeGate(selectors: {
-    day?: string;
-    month?: string;
-    year?: string;
-    submit: string;
-  }) {
+  async fillAgeGate(submitSelector: string) {
     if (!this.page) return;
 
     try {
-      console.log(`[${this.name}] Checking for age gate...`);
+      console.log(`[${this.name}] Checking for age gate submit button...`);
 
-      const { day, month, year, submit } = selectors;
+      // czekamy, aż input submit pojawi się w DOM
+      await this.page.waitForSelector(submitSelector, { timeout: 8000 });
 
-      const submitBtn = this.page.locator(submit).first();
-      const hasSubmit = (await submitBtn.count()) > 0;
+      const btn = this.page.locator(submitSelector).first();
+      await btn.waitFor({ state: "visible", timeout: 5000 });
 
-      const dayField = day ? this.page.locator(day).first() : null;
-      const monthField = month ? this.page.locator(month).first() : null;
-      const yearField = year ? this.page.locator(year).first() : null;
+      console.log(`[${this.name}] Age gate submit button visible, clicking...`);
+      await btn.click({ force: true });
 
-      // --- CASE 1: age gate z polami ---
-      if (dayField && monthField && yearField) {
-        const hasDay = (await dayField.count()) > 0;
+      // Po kliknięciu czekamy, aż strona się przeładuje
+      await this.page.waitForSelector(".product-item, .productCard", {
+        timeout: 6000,
+      });
 
-        if (hasDay) {
-          await dayField.fill("01");
-          await monthField.fill("01");
-          await yearField.fill("1990");
-          await submitBtn.click();
-          await this.page.waitForTimeout(1200);
-
-          console.log(`[${this.name}] Age gate (input version) filled.`);
-          return;
-        }
-      }
-
-      // --- CASE 2: tylko przycisk ---
-      if (hasSubmit) {
-        console.log(`[${this.name}] Simple age gate button found.`);
-
-        await submitBtn.click();
-        await this.page.waitForTimeout(800);
-
-        console.log(`[${this.name}] Age gate (button version) clicked.`);
-        return;
-      }
-
-      console.log(`[${this.name}] No age gate found.`);
+      console.log(`[${this.name}] Age gate passed, navigation done.`);
     } catch (err) {
-      console.log(`[${this.name}] Failed age verification.`);
+      console.log(`[${this.name}] No age gate submit or failed to click:`, err);
     }
   }
 
