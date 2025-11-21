@@ -1,17 +1,43 @@
-// src/scrapers/BiedronkaScraper.ts
 import { RawVodka } from "../types/VodkaProps";
 import { BaseScraper } from "./BaseScraper";
 import { VodkaParser } from "../parsers/VodkaParser";
 
+/**
+ * Scraper odpowiedzialny za pobieranie danych o wódkach
+ * z kategorii "Piwniczka Biedronki" na stronie biedronka.pl.
+ *
+ * Dziedziczy po BaseScraper, więc korzysta ze wspólnych metod:
+ * - init() – odpalenie Puppeteera
+ * - openPage() – przejście na adres sklepu
+ * - acceptCookies() – kliknięcie przycisku cookies
+ * - fillAgeGate() – przejście przez weryfikację wieku
+ * - close() – zamknięcie przeglądarki
+ *
+ * Zadaniem tego scraperka jest:
+ * 1. Odpalić stronę.
+ * 2. Ominąć cookies + age gate.
+ * 3. Zeskrolować stronę.
+ * 4. Zebrać "surowe" informacje o produktach (RawVodka).
+ * 5. Przepuścić je przez parser → dostajesz Vodka[] gotowe na frontend.
+ */
 export class BiedronkaScraper extends BaseScraper {
+  /**
+   * Selektory wykorzystywane do interakcji i scrapowania.
+   * Podzielone logicznie:
+   * - cookies – kilka możliwych selektorów akceptacji
+   * - ageGate – pola formularza + submit
+   * - product* – elementy kart produktów
+   */
   selectors = {
     cookies: "button#onetrust-accept-btn-handler, #didomi-notice-agree-button",
+
     ageGate: {
       day: 'input[name="gateDay"]',
       month: 'input[name="gateMonth"]',
       year: 'input[name="gateYear"]',
       submit: "#gateSubmit",
     },
+
     productItem: ".product-item, .big-products-box, .productCard",
     productName: "li.name, .product-name, .productTitle",
     productPrice: "li.old_price, .price__integer, .price",
@@ -20,7 +46,13 @@ export class BiedronkaScraper extends BaseScraper {
     productLink: "a",
   };
 
-  constructor(headless = false) {
+  /**
+   * Konstruktor. Przekazuje do BaseScraper:
+   * - nazwę sklepu
+   * - URL kategorii z alkoholami
+   * - tryb headless (domyślnie true)
+   */
+  constructor(headless = true) {
     super(
       "Biedronka",
       "https://www.biedronka.pl/pl/piwniczka-biedronki,kategoria,wodka",
@@ -28,6 +60,19 @@ export class BiedronkaScraper extends BaseScraper {
     );
   }
 
+  /**
+   * Główna metoda scrapera.
+   * Wykonuje pełny proces:
+   * 1. Start Puppeteera.
+   * 2. Wejście na stronę.
+   * 3. Akceptacja cookies.
+   * 4. Przejście przez age gate.
+   * 5. Pobranie listy surowych produktów.
+   * 6. Konwersja RawVodka → Vodka przez VodkaParser.
+   * 7. Zamknięcie przeglądarki.
+   *
+   * Zwraca tablicę Vodka[] gotową do zapisania w DB lub wysłania na frontend.
+   */
   async scrape() {
     await this.init();
     await this.openPage();
@@ -44,6 +89,25 @@ export class BiedronkaScraper extends BaseScraper {
     return vodkas;
   }
 
+  /**
+   * Pobiera wszystkie karty produktów na stronie i konstruuje z nich
+   * struktury RawVodka.
+   *
+   * Proces:
+   * - Delikatny wait + scroll, bo Biedronka czasem lazy-loaduje elementy.
+   * - Wyszukanie wszystkich elementów produktu po selektorze productItem.
+   * - Próba wyciągnięcia:
+   *   - nazwy
+   *   - ceny (integer + decimals)
+   *   - zdjęcia
+   *   - URLa
+   *   - całego tekstu karty
+   *
+   * Gdy jakiś element nie istnieje → fallback do "cardText".
+   *
+   * Zwraca RawVodka[], czyli WERSJĘ SUROWĄ,
+   * którą później ogarnia VodkaParser.
+   */
   private async getProductsRaw(): Promise<RawVodka[]> {
     await this.page.waitForTimeout(600);
     await this.page.evaluate(() =>
@@ -72,14 +136,19 @@ export class BiedronkaScraper extends BaseScraper {
           )
           .catch(() => "");
 
-        // składamy cenę
+        /**
+         * Składanie ceny:
+         * - Jeśli oba fragmenty są → "4" + "." + "99" = "4.99"
+         * - Jeśli tylko integer → używamy samego integera
+         * - Jeśli nic → pusty string
+         */
         const combinedPrice = rawPriceInt
           ? rawPriceDec
             ? `${rawPriceInt}.${rawPriceDec}`
             : rawPriceInt
           : "";
 
-        // parujemy cenę do number
+        // Parsowanie liczby z tekstu
         const priceNumber = this.cleanPriceToNumber(combinedPrice) || 0;
 
         const imageSrc = await item
@@ -107,6 +176,18 @@ export class BiedronkaScraper extends BaseScraper {
     return results;
   }
 
+  /**
+   * Czyści tekst ceny do formatu number.
+   *
+   * Wykonuje:
+   * - usuwanie spacji
+   * - usuwanie "zł"
+   * - filtr na cyfry i . oraz ,
+   * - zamianę przecinka na kropkę
+   * - parseFloat
+   *
+   * Jeśli czegoś nie da się sparsować → zwraca 0.
+   */
   private cleanPriceToNumber(text: string): number {
     if (!text) return 0;
     const cleaned = text
