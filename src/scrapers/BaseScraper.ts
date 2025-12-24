@@ -1,5 +1,6 @@
 import { chromium, Browser, Page, BrowserContext } from "playwright";
-import { Vodka } from "../types/VodkaProps";
+import { RawVodka, Vodka } from "../types/VodkaProps";
+import { Selectors } from "../types/SelectorsProps";
 
 /**
  * Abstrakcyjna klasa bazowa dla scraperów sklepów.
@@ -156,6 +157,116 @@ export abstract class BaseScraper {
     console.log(`[${this.name}] Closing browser...`);
     await this.context?.close();
     await this.browser?.close();
+  }
+
+  /**
+   * Pobiera wszystkie karty produktów na stronie i konstruuje z nich
+   * struktury RawVodka.
+   *
+   * Proces:
+   * - Delikatny wait + scroll, bo Biedronka czasem lazy-loaduje elementy.
+   * - Wyszukanie wszystkich elementów produktu po selektorze productItem.
+   * - Próba wyciągnięcia:
+   *   - nazwy
+   *   - ceny (integer + decimals)
+   *   - zdjęcia
+   *   - URLa
+   *   - całego tekstu karty
+   *
+   * Gdy jakiś element nie istnieje → fallback do "cardText".
+   *
+   * Zwraca RawVodka[], czyli WERSJĘ SUROWĄ,
+   * którą później ogarnia VodkaParser.
+   */
+  async getProductsRaw(selectors: Selectors): Promise<RawVodka[]> {
+    const prod = selectors.product;
+
+    await this.page.waitForTimeout(600);
+    await this.page.evaluate(() =>
+      window.scrollTo(0, document.body.scrollHeight)
+    );
+    await this.page.waitForTimeout(800);
+
+    const items = await this.page.$$(prod.item);
+    const results: RawVodka[] = [];
+
+    for (const item of items) {
+      try {
+        const cardText = (await item.textContent())?.trim() ?? "";
+
+        const rawName = await item
+          .$eval(prod.name, (el) => el.textContent?.trim())
+          .catch(() => cardText);
+
+        const rawPriceInt = await item
+          .$eval(prod.price, (el) => el.textContent?.trim())
+          .catch(() => "");
+
+        const rawPriceDec = await item
+          .$eval(prod.priceDecimals!, (el) => el.textContent?.trim())
+          .catch(() => "");
+
+        /**
+         * Składanie ceny:
+         * - Jeśli oba fragmenty są → "4" + "." + "99" = "4.99"
+         * - Jeśli tylko integer → używamy samego integera
+         * - Jeśli nic → pusty string
+         */
+        const combinedPrice = rawPriceInt
+          ? rawPriceDec
+            ? `${rawPriceInt}.${rawPriceDec}`
+            : rawPriceInt
+          : "";
+
+        // Parsowanie liczby z tekstu
+        const priceNumber = this.cleanPriceToNumber(combinedPrice) || 0;
+
+        const imageSrc = await item
+          .$eval(prod.imgSrc, (el) => el.getAttribute("src"))
+          .catch(() => null);
+
+        const url = await item
+          .$eval(prod.link, (el) => el.getAttribute("href"))
+          .catch(() => null);
+
+        results.push({
+          name: rawName ?? cardText,
+          price: priceNumber,
+          imageSrc,
+          volume: null,
+          url,
+          rawText: cardText,
+        });
+      } catch (err) {
+        console.warn("[BiedronkaScraper] product parse failed:", err);
+        continue;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Czyści tekst ceny do formatu number.
+   *
+   * Wykonuje:
+   * - usuwanie spacji
+   * - usuwanie "zł"
+   * - filtr na cyfry i . oraz ,
+   * - zamianę przecinka na kropkę
+   * - parseFloat
+   *
+   * Jeśli czegoś nie da się sparsować → zwraca 0.
+   */
+  private cleanPriceToNumber(text: string): number {
+    if (!text) return 0;
+    const cleaned = text
+      .replace(/\s/g, "")
+      .replace(/zł/gi, "")
+      .replace(/[^\d.,]/g, "")
+      .replace(",", ".");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
   }
 
   /**
