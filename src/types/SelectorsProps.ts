@@ -1,5 +1,6 @@
 export interface Selectors {
   cookies: string;
+  newsletter?: string;
   ageGate: {
     accept: string;
     submit?: string;

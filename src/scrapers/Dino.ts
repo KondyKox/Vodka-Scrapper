@@ -3,6 +3,7 @@ import { Vodka } from "../types/VodkaProps";
 import { BaseScraper } from "./BaseScraper";
 
 export class DinoScraper extends BaseScraper {
+  // TODO: zmienic selektory bo te ni chuja nie dzialają (albo zjebalem)
   selectors = {
     cookies: "#cookiescript_accept",
     newsletter: "div[data-v\\-280ab3c9] button",
@@ -13,11 +14,11 @@ export class DinoScraper extends BaseScraper {
     },
 
     product: {
-      item: "",
-      name: "",
-      price: "",
-      imgSrc: "",
-      link: "",
+      item: "div[data-v-5311da7f]",
+      name: "h3[data-v-6b9a5b60]",
+      price: "div[data-v-6b9a5b60] > span",
+      imgSrc: "img[data-v-6b9a5b60]",
+      link: "a[data-v-6b9a5b60]",
     },
   };
 
@@ -34,7 +35,7 @@ export class DinoScraper extends BaseScraper {
 
     const rawList = await this.getProductsRaw(this.selectors);
 
-    const parser = new VodkaParser(this.name, "/dino.png"); // dodac to zdjecie
+    const parser = new VodkaParser(this.name, "/dino.png");
     const vodkas = parser.parse(rawList);
 
     await this.close();
